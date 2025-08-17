@@ -76,6 +76,8 @@ export default function OverlayStudio() {
   const [showGrid, setShowGrid] = useState(false);
   const [keepRatio, setKeepRatio] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
+  // Pestañas móviles: 'left' | 'canvas' | 'right'
+  const [mobileTab, setMobileTab] = useState("canvas");
 
   const [fitScale, setFitScale] = useState(1);
   const viewScale = fitScale * zoom;
@@ -126,6 +128,11 @@ export default function OverlayStudio() {
     }
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
+  }, [base]);
+
+  // Cambiar pestaña por defecto en móvil según haya base o no
+  useEffect(() => {
+    setMobileTab(base ? "canvas" : "left");
   }, [base]);
 
   // Inputs de archivo
@@ -407,9 +414,17 @@ export default function OverlayStudio() {
 
   // UI
   return (
-    <div className="w-full h-full min-h-[560px] grid grid-cols-[280px_1fr_320px] gap-4 p-4 bg-neutral-100 text-neutral-900">
+    <div className="w-full h-full min-h-[560px] grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-3 lg:gap-4 p-3 lg:p-4 bg-neutral-100 text-neutral-900">
+      {/* Controles móviles */}
+      <div className="lg:hidden -mt-1 mb-2">
+        <div className="flex gap-2">
+          <button onClick={() => setMobileTab('left')} className={`flex-1 rounded-xl px-3 py-2 border ${mobileTab==='left'?'bg-indigo-600 text-white border-indigo-600':'bg-white'}`}>Proyecto</button>
+          <button onClick={() => setMobileTab('canvas')} className={`flex-1 rounded-xl px-3 py-2 border ${mobileTab==='canvas'?'bg-indigo-600 text-white border-indigo-600':'bg-white'}`}>Lienzo</button>
+          <button onClick={() => setMobileTab('right')} className={`flex-1 rounded-xl px-3 py-2 border ${mobileTab==='right'?'bg-indigo-600 text-white border-indigo-600':'bg-white'}`}>Propiedades</button>
+        </div>
+      </div>
       {/* Panel izquierdo */}
-      <aside className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-4">
+      <aside className={`bg-white rounded-2xl shadow-sm p-4 gap-4 ${mobileTab==='left' ? 'flex' : 'hidden'} lg:flex flex-col`}>
         <h2 className="text-lg font-semibold">Proyecto</h2>
         <div className="space-y-3">
           <button
@@ -504,7 +519,7 @@ export default function OverlayStudio() {
       </aside>
 
       {/* Lienzo */}
-      <section className="relative rounded-2xl bg-white shadow-sm overflow-hidden" onDragOver={onDragOverFiles} onDragEnter={onDragEnterFiles} onDragLeave={onDragLeaveFiles} onDrop={onDropFiles}>
+      <section className={`relative rounded-2xl bg-white shadow-sm overflow-hidden ${mobileTab==='canvas' ? 'block' : 'hidden'} lg:block min-h-[60vh]`} onDragOver={onDragOverFiles} onDragEnter={onDragEnterFiles} onDragLeave={onDragLeaveFiles} onDrop={onDropFiles}>
         <div ref={stageWrapRef} className="absolute inset-0 p-2">
           <div
             ref={stageRef}
@@ -594,7 +609,7 @@ export default function OverlayStudio() {
       </section>
 
       {/* Panel derecho */}
-      <aside className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-4">
+      <aside className={`bg-white rounded-2xl shadow-sm p-4 gap-4 ${mobileTab==='right' ? 'flex' : 'hidden'} lg:flex flex-col`}>
         <h2 className="text-lg font-semibold">Propiedades</h2>
         {activeLayer ? (
           <div className="space-y-4">
