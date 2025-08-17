@@ -370,15 +370,29 @@ export default function OverlayStudio() {
   const [dragging, setDragging] = useState(null);
   const [resizing, setResizing] = useState(null);
   const [rotating, setRotating] = useState(null);
+  // Soporte táctil/unificado con Pointer Events
+  // (seguimos soportando mouse events por compatibilidad)
+
 
   function onMouseDownLayer(e, l) {
     if (!base) return;
     setActiveId(l.id);
     const target = e.target;
-    if (target.dataset.handle) return; // si es un handle, otro flujo maneja
+    if (target?.dataset?.handle) return; // si es un handle, otro flujo maneja
     const sx = e.clientX; const sy = e.clientY;
     setDragging({ id: l.id, startX: sx, startY: sy, startLX: l.x, startLY: l.y });
   }
+
+  // === Pointer Events (táctil + mouse) ===
+  function onPointerDownLayer(e, l) {
+    if (!base) return;
+    setActiveId(l.id);
+    if (e.pointerType === 'touch') e.preventDefault();
+    const target = e.target;
+    if (target?.dataset?.handle) return;
+    try { e.currentTarget?.setPointerCapture?.(e.pointerId); } catch {}
+    setDragging({ id: l.id, startX: e.clientX, startY: e.clientY, startLX: l.x, startLY: l.y });
+  };
 
   function onMouseMove(e) {
     if (!base) return;
@@ -410,7 +424,13 @@ export default function OverlayStudio() {
     }
   }
 
+  function onPointerMove(e) {
+    if (e.pointerType === 'touch') e.preventDefault();
+    onMouseMove(e);
+  }
+
   function onMouseUp() { setDragging(null); setResizing(null); setRotating(null); }
+  function onPointerUp() { setDragging(null); setResizing(null); setRotating(null); }
 
   // UI
   return (
@@ -523,8 +543,9 @@ export default function OverlayStudio() {
         <div ref={stageWrapRef} className="absolute inset-0 p-2">
           <div
             ref={stageRef}
-            className="relative mx-auto my-auto w-full h-full flex items-center justify-center select-none"
+            className="relative mx-auto my-auto w-full h-full flex items-center justify-center select-none touch-none"
             onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+            onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
           >
             {base ? (
               <div
@@ -560,7 +581,7 @@ export default function OverlayStudio() {
                     cursor: sel ? "move" : "default",
                   };
                   return (
-                    <div key={l.id} style={style} onMouseDown={(e) => onMouseDownLayer(e, l)}>
+                    <div key={l.id} style={style} className="touch-none" onMouseDown={(e) => onMouseDownLayer(e, l)} onPointerDown={(e) => onPointerDownLayer(e, l)}>
                       <img src={l.data.url} alt={l.name} draggable={false} className="w-full h-full object-contain rounded-md" />
                       {sel && (
                         <>
@@ -568,11 +589,9 @@ export default function OverlayStudio() {
                           {["nw", "ne", "sw", "se"].map(h => (
                             <div key={h}
                               data-handle
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                setResizing({ id: l.id, handle: h, startX: e.clientX, startY: e.clientY, start: { x: l.x, y: l.y, w: l.width, h: l.height } });
-                              }}
-                              className={`absolute w-3 h-3 bg-white border-2 border-indigo-500 rounded -translate-x-1/2 -translate-y-1/2 ${
+                              onMouseDown={(e) => { e.stopPropagation(); setResizing({ id: l.id, handle: h, startX: e.clientX, startY: e.clientY, start: { x: l.x, y: l.y, w: l.width, h: l.height } }); }}
+                              onPointerDown={(e) => { e.stopPropagation(); if (e.pointerType==='touch') e.preventDefault(); setResizing({ id: l.id, handle: h, startX: e.clientX, startY: e.clientY, start: { x: l.x, y: l.y, w: l.width, h: l.height } }); }}
+                              className={`absolute w-3 h-3 touch-none bg-white border-2 border-indigo-500 rounded -translate-x-1/2 -translate-y-1/2 ${
                                 h === "nw" ? "left-0 top-0" : h === "ne" ? "left-full top-0" : h === "sw" ? "left-0 top-full" : "left-full top-full"
                               }`}
                               title={`Redimensionar ${h.toUpperCase()}`}
@@ -581,15 +600,9 @@ export default function OverlayStudio() {
                           {/* perilla de rotación */}
                           <div
                             data-handle
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              const parentRect = stageRef.current?.getBoundingClientRect();
-                              const cx = (l.x + l.width / 2) * viewScale + (parentRect?.left || 0);
-                              const cy = (l.y + l.height / 2) * viewScale + (parentRect?.top || 0);
-                              const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
-                              setRotating({ id: l.id, startX: e.clientX, startY: e.clientY, startAngle, cx, cy });
-                            }}
-                            className="absolute left-1/2 -translate-x-1/2 -top-6 w-4 h-4 rounded-full bg-indigo-500 border-2 border-white shadow"
+                            onMouseDown={(e) => { e.stopPropagation(); const parentRect = stageRef.current?.getBoundingClientRect(); const cx = (l.x + l.width / 2) * viewScale + (parentRect?.left || 0); const cy = (l.y + l.height / 2) * viewScale + (parentRect?.top || 0); const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI; setRotating({ id: l.id, startX: e.clientX, startY: e.clientY, startAngle, cx, cy }); }}
+                            onPointerDown={(e) => { e.stopPropagation(); if (e.pointerType==='touch') e.preventDefault(); const parentRect = stageRef.current?.getBoundingClientRect(); const cx = (l.x + l.width / 2) * viewScale + (parentRect?.left || 0); const cy = (l.y + l.height / 2) * viewScale + (parentRect?.top || 0); const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI; setRotating({ id: l.id, startX: e.clientX, startY: e.clientY, startAngle, cx, cy }); }}
+                            className="absolute left-1/2 -translate-x-1/2 -top-6 w-4 h-4 rounded-full bg-indigo-500 border-2 border-white shadow touch-none"
                             title="Rotar"
                           />
                         </>
